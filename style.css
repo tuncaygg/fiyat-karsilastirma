@@ -1,0 +1,130 @@
+/* ===== RESET ===== */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+
+/* ===== SCREEN ===== */
+body{
+  background:#f2f4f8;
+  color:#1a1a2e;
+  font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+  font-size:14px;
+  min-height:100vh;
+}
+#app{max-width:960px;margin:0 auto;padding:1rem}
+
+/* ---- HEADER ---- */
+.header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:2px solid #e0e4ea;
+}
+.header h1{font-size:1.2rem;font-weight:700}
+.header-actions{display:flex;gap:0.5rem}
+
+/* ---- BUTONLAR ---- */
+.btn{
+  padding:0.55rem 1rem;border-radius:8px;border:none;
+  font-size:0.85rem;font-weight:600;cursor:pointer;
+  transition:all 0.15s;white-space:nowrap;
+}
+.btn-primary{background:#2a4bff;color:#fff}
+.btn-primary:hover{background:#1f3cd9}
+.btn-success{background:#0d9488;color:#fff}
+.btn-success:hover{background:#0b7f74}
+.btn-danger{background:#dc2626;color:#fff}
+.btn-danger:hover{background:#b91c1c}
+.btn-outline{background:transparent;border:1.5px solid #d1d5db;color:#374151}
+.btn-outline:hover{background:#f3f4f6}
+.btn-sm{padding:0.35rem 0.7rem;font-size:0.8rem}
+
+/* ---- KART ---- */
+.card{
+  background:#fff;border-radius:12px;padding:1.25rem;
+  box-shadow:0 1px 3px rgba(0,0,0,0.06);margin-bottom:1rem;
+}
+.card-title{font-size:0.9rem;font-weight:600;margin-bottom:1rem;color:#374151}
+
+/* ---- EKLEME FORMU ---- */
+.row{display:flex;gap:0.5rem;margin-bottom:0.5rem;flex-wrap:wrap}
+.row > *{flex:1;min-width:0}
+.row > .w-auto{flex:0 0 auto}
+.row > .w-full{flex:0 0 100%}
+input,select{
+  padding:0.55rem 0.75rem;border-radius:8px;border:1.5px solid #d1d5db;
+  font-size:0.85rem;outline:none;background:#fff;color:#1a1a2e;
+  transition:border 0.15s;width:100%;
+}
+input:focus,select:focus{border-color:#2a4bff}
+input[type="number"]{-moz-appearance:textfield}
+input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none}
+
+/* ---- TABLO ---- */
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:0.85rem;min-width:600px}
+th,td{padding:0.55rem 0.6rem;text-align:left;border-bottom:1px solid #e5e7eb;white-space:nowrap}
+th{background:#f9fafb;font-weight:600;color:#374151;position:sticky;top:0}
+td input[type="number"]{
+  width:100%;min-width:70px;padding:0.35rem 0.5rem;
+  border-radius:6px;border:1.5px solid #e5e7eb;
+}
+td input[type="number"]:focus{border-color:#2a4bff}
+tr.best td{background:#ecfdf5!important}
+tr.best td:first-child{border-left:3px solid #0d9488}
+.best-badge{
+  display:inline-block;font-size:0.7rem;font-weight:700;
+  color:#0d9488;background:#d1fae5;
+  padding:0.1rem 0.4rem;border-radius:4px;margin-left:0.3rem;
+}
+td:last-child{font-weight:600}
+
+/* ---- LİSTE ---- */
+.request-list{list-style:none}
+.request-item{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:0.75rem 0;border-bottom:1px solid #e5e7eb;cursor:pointer;
+}
+.request-item:hover{background:#f9fafb;margin:0 -1rem;padding:0.75rem 1rem;border-radius:8px}
+.request-item:last-child{border-bottom:none}
+.request-date{font-size:0.8rem;color:#6b7280}
+.request-summary{font-size:0.85rem;margin-top:0.15rem;color:#6b7280}
+
+/* ---- SAYFALAR ---- */
+.page{display:none}
+.page.active{display:block}
+
+/* ---- ÖZEL BİLEŞENLER ---- */
+.supplier-tag{
+  display:inline-block;padding:0.25rem 0.6rem;border-radius:6px;
+  background:#eff6ff;color:#1d4ed8;font-size:0.8rem;font-weight:500;
+  margin:0.15rem;
+}
+.form-section{margin-bottom:1.5rem}
+.section-label{font-size:0.85rem;font-weight:600;color:#4b5563;margin-bottom:0.5rem}
+.badge{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:1.4rem;height:1.4rem;padding:0 0.35rem;
+  border-radius:999px;font-size:0.7rem;font-weight:700;
+}
+.badge-primary{background:#2a4bff;color:#fff}
+
+/* ===== PRINT ===== */
+@media print{
+  @page{size:A4 landscape;margin:1.2cm}
+  body{background:#fff;color:#000;font-size:11px}
+  .header,.no-print{display:none!important}
+  #app{max-width:100%;padding:0;margin:0}
+  .card{box-shadow:none;padding:0;margin:0;border:none}
+  .page{display:block!important}
+  .table-wrap{overflow:visible}
+  table{min-width:100%;font-size:9.5px}
+  th,td{padding:4px 5px;border-color:#ccc}
+  td input[type="number"]{border:none;padding:0;background:transparent;min-width:auto}
+  tr.best td{background:#e6f7ed!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .best-badge{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .supplier-tag{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+
+@media(max-width:600px){
+  #app{padding:0.75rem}
+  .header h1{font-size:1rem}
+  .card{padding:0.75rem}
+  .row{gap:0.35rem}
+}
