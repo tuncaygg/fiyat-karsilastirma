@@ -3,9 +3,11 @@
    ================================================================ */
 
 const STORAGE_KEY = 'satin-alm-records';
+const SUPPLIER_STORAGE_KEY = 'satin-alm-suppliers';
 const UNITS = ['kg','adet','kutu','kova','paket','torba','litre','çift','takım','metre'];
 
 let records = [];
+let knownSuppliers = [];
 let currentRecordId = null;
 
 /* ---- YÜKLE / KAYDET ---- */
@@ -14,6 +16,12 @@ function loadData(){
 }
 function saveData(){
   localStorage.setItem(STORAGE_KEY,JSON.stringify(records));
+}
+function loadSuppliers(){
+  try{const r=localStorage.getItem(SUPPLIER_STORAGE_KEY);if(r)knownSuppliers=JSON.parse(r)}catch(_){}
+}
+function saveSuppliers(){
+  localStorage.setItem(SUPPLIER_STORAGE_KEY,JSON.stringify(knownSuppliers));
 }
 
 /* ---- YARDIMCI ---- */
@@ -46,11 +54,12 @@ function renderHome(){
     <div class="page active" id="page-home">
       ${records.length===0?'<div class="card" style="text-align:center;color:#9ca3af;padding:2rem">Henüz kayıt yok.<br>Yeni talep oluşturun.</div>'
       :`<ul class="card request-list">${records.slice().reverse().map(r=>`
-        <li class="request-item" onclick="openRequest('${r.id}')">
-          <div>
+        <li class="request-item">
+          <div onclick="openRequest('${r.id}')" style="flex:1;cursor:pointer">
             <strong>${esc(r.title||'İsimsiz Talep')}</strong>
             <div class="request-date">${r.date} &middot; ${r.items?.length||0} ürün, ${r.suppliers?.length||0} tedarikçi</div>
           </div>
+          <button class="btn btn-danger btn-sm w-auto" onclick="event.stopPropagation();deleteRecord('${r.id}')" style="padding:0.25rem 0.5rem">&times;</button>
         </li>`).join('')}</ul>`}
     </div>`;
   showPage('page-home');
@@ -92,9 +101,11 @@ function renderRequestForm(r){
         <div class="card-title">Tedarikçiler</div>
         <div id="suppliersWrap"></div>
         <div class="row" style="margin-top:0.5rem">
-          <input type="text" id="supplierInput" placeholder="Tedarikçi adı" />
+          <input type="text" id="supplierInput" placeholder="Tedarikçi adı" list="supplierDatalist" />
+          <datalist id="supplierDatalist">${knownSuppliers.map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
           <button class="btn btn-primary btn-sm w-auto" onclick="addSupplier()">Ekle</button>
         </div>
+        ${knownSuppliers.filter(s=>!r.suppliers.includes(s)).length>0?`<div style="margin-top:0.5rem;font-size:0.8rem;color:#6b7280">Kayıtlı tedarikçiler:</div><div style="display:flex;flex-wrap:wrap;gap:0.25rem;margin-top:0.25rem">${knownSuppliers.filter(s=>!r.suppliers.includes(s)).map(s=>`<span class="supplier-tag" style="cursor:pointer" onclick="addSupplierByName('${esc(s)}')">+ ${esc(s)}</span>`).join('')}</div>`:''}
       </div>
       <div style="text-align:right;margin-top:1rem">
         <button class="btn btn-success" onclick="goToPrices('${r.id}')">Fiyatları Girmeye Başla &rarr;</button>
@@ -138,6 +149,10 @@ function saveFormItems(){
 }
 
 /* ---- TEDARİKÇİ ---- */
+function addToKnown(name){
+  if(!knownSuppliers.includes(name)){knownSuppliers.push(name);saveSuppliers()}
+}
+
 function addSupplier(){
   const input=$('supplierInput');
   const name=input.value.trim();
@@ -146,10 +161,21 @@ function addSupplier(){
   if(!r)return;
   if(r.suppliers.includes(name)){input.value='';return}
   r.suppliers.push(name);
+  addToKnown(name);
   saveData();
   renderSupplierTag(name);
   input.value='';
   input.focus();
+}
+
+function addSupplierByName(name){
+  const r=getRecord();
+  if(!r)return;
+  if(r.suppliers.includes(name))return;
+  r.suppliers.push(name);
+  addToKnown(name);
+  saveData();
+  renderSupplierTag(name);
 }
 
 function renderSupplierTag(name){
@@ -171,6 +197,13 @@ function removeSupplier(name){
 
 function getRecord(){
   return records.find(r=>r.id===currentRecordId);
+}
+function deleteRecord(id){
+  if(!confirm('Bu talebi silmek istediğinize emin misiniz?'))return;
+  records=records.filter(r=>r.id!==id);
+  if(currentRecordId===id)currentRecordId=null;
+  saveData();
+  renderHome();
 }
 
 /* ================================================================
@@ -369,4 +402,5 @@ function openRequest(id){
    BAŞLAT
    ================================================================ */
 loadData();
+loadSuppliers();
 renderHome();
