@@ -7,7 +7,6 @@ const UNITS = ['kg','adet','kutu','kova','paket','torba','litre','çift','takım
 
 let records = [];
 let currentRecordId = null;
-let currentView = null;
 
 /* ---- YÜKLE / KAYDET ---- */
 function loadData(){
@@ -22,11 +21,10 @@ function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2
 function $(id){return document.getElementById(id)}
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
 function fmtTL(n){return Number(n).toLocaleString('tr-TR',{minimumFractionDigits:2})+String.fromCharCode(160)+'TL'}
-function today(){return new Date().toLocaleDateString('tr-TR',{day:'2-digit',month:'long',year:'numeric'})}
+function today(){const d=new Date();return d.toLocaleDateString('tr-TR',{day:'2-digit',month:'long',year:'numeric'})}
 function todayISO(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function now(){return new Date().toLocaleString('tr-TR')}
 
-/* ---- SAYFA GEÇİŞİ ---- */
 function showPage(id){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   const el=$(id);
@@ -34,7 +32,7 @@ function showPage(id){
 }
 
 /* ================================================================
-   VIEW: ANA SAYFA — Talep Listesi
+   ANA SAYFA
    ================================================================ */
 function renderHome(){
   const app=$('app');
@@ -46,26 +44,24 @@ function renderHome(){
       </div>
     </div>
     <div class="page active" id="page-home">
-      ${records.length===0 ? '<div class="card" style="text-align:center;color:#9ca3af;padding:2rem">Henüz kayıt yok.<br>Yeni talep oluşturun.</div>'
-      : `<ul class="card request-list">${records.slice().reverse().map(r=>`
+      ${records.length===0?'<div class="card" style="text-align:center;color:#9ca3af;padding:2rem">Henüz kayıt yok.<br>Yeni talep oluşturun.</div>'
+      :`<ul class="card request-list">${records.slice().reverse().map(r=>`
         <li class="request-item" onclick="openRequest('${r.id}')">
           <div>
             <strong>${esc(r.title||'İsimsiz Talep')}</strong>
             <div class="request-date">${r.date} &middot; ${r.items?.length||0} ürün, ${r.suppliers?.length||0} tedarikçi</div>
           </div>
-          <span style="color:#9ca3af;font-size:0.8rem">${r.itemCount||''}</span>
         </li>`).join('')}</ul>`}
-    </div>
-  `;
+    </div>`;
   showPage('page-home');
 }
 
 /* ================================================================
-   VIEW: YENİ TALEP — Ürün + Tedarikçi Ekleme
+   TALEP FORMU
    ================================================================ */
 function newRequest(){newRequestWith(null)}
 function newRequestWith(record){
-  const r=record || {id:uid(),title:'',date:today(),dateISO:todayISO(),items:[],suppliers:[],prices:{},created:now()};
+  const r=record||{id:uid(),title:'',date:today(),dateISO:todayISO(),items:[],suppliers:[],prices:{},created:now()};
   if(!record)records.push(r);
   currentRecordId=r.id;
   saveData();
@@ -87,13 +83,11 @@ function renderRequestForm(r){
           <input type="date" id="reqDate" value="${r.dateISO}" class="w-auto" style="flex:0 0 auto;width:auto" />
         </div>
       </div>
-
       <div class="card">
         <div class="card-title">Ürünler</div>
         <div id="itemsWrap"></div>
         <button class="btn btn-outline btn-sm" onclick="addItemRow()">+ Ürün Ekle</button>
       </div>
-
       <div class="card">
         <div class="card-title">Tedarikçiler</div>
         <div id="suppliersWrap"></div>
@@ -102,25 +96,18 @@ function renderRequestForm(r){
           <button class="btn btn-primary btn-sm w-auto" onclick="addSupplier()">Ekle</button>
         </div>
       </div>
-
       <div style="text-align:right;margin-top:1rem">
         <button class="btn btn-success" onclick="goToPrices('${r.id}')">Fiyatları Girmeye Başla &rarr;</button>
       </div>
-    </div>
-  `;
+    </div>`;
   showPage('page-form');
-
-  // Mevcut veriyi yükle
   r.items.forEach((item,i)=>addItemRow(item,i));
   r.suppliers.forEach(s=>renderSupplierTag(s));
-
-  // Değişiklikleri kaydet
   $('reqTitle').oninput=function(){r.title=this.value;saveData()};
-  $('reqDate').onchange=function(){r.dateISO=this.value;r.date=new Date(this.value+'T12:00:00').toLocaleDateString('tr-TR',{day:'2-digit',month:'long',year:'numeric'});saveData()};
+  $('reqDate').onchange=function(){r.dateISO=this.value;const d=new Date(this.value+'T12:00:00');r.date=d.toLocaleDateString('tr-TR',{day:'2-digit',month:'long',year:'numeric'});saveData()};
 }
 
-/* ---- ÜRÜN SATIRI ---- */
-function addItemRow(item,idx){
+function addItemRow(item){
   const wrap=$('itemsWrap');
   const div=document.createElement('div');
   div.className='row item-row';
@@ -130,23 +117,17 @@ function addItemRow(item,idx){
     <select class="item-unit" style="flex:0 0 auto;width:80px">
       ${UNITS.map(u=>`<option value="${u}"${item&&item.unit===u?' selected':''}>${u}</option>`).join('')}
     </select>
-    <button class="btn btn-danger btn-sm w-auto" onclick="this.closest('.item-row').remove();saveFormItems()" style="padding:0.35rem 0.5rem">&times;</button>
-  `;
+    <button class="btn btn-danger btn-sm w-auto" onclick="this.closest('.item-row').remove();saveFormItems()" style="padding:0.35rem 0.5rem">&times;</button>`;
   wrap.appendChild(div);
-
-  // Değişikliklerde otomatik kaydet
   div.querySelectorAll('input,select').forEach(el=>el.onchange=saveFormItems);
-
-  if(item===undefined){
-    // Yeni ürün eklendiğinde otomatik kaydet
-    saveFormItems();
-  }
+  if(!item)saveFormItems();
 }
 
 function saveFormItems(){
   const r=getRecord();
   if(!r)return;
   const rows=document.querySelectorAll('.item-row');
+  if(!rows.length)return; // form visible değilse temizleme
   r.items=[];
   rows.forEach(row=>{
     const name=row.querySelector('.item-name').value.trim();
@@ -175,7 +156,8 @@ function renderSupplierTag(name){
   const wrap=$('suppliersWrap');
   const tag=document.createElement('span');
   tag.className='supplier-tag';
-  tag.style.marginRight='0.3rem';tag.style.marginBottom='0.3rem';tag.style.display='inline-flex';tag.style.alignItems='center';tag.style.gap='0.3rem';
+  tag.style.marginRight='0.3rem';tag.style.marginBottom='0.3rem';
+  tag.style.display='inline-flex';tag.style.alignItems='center';tag.style.gap='0.3rem';
   tag.innerHTML=`${esc(name)} <span style="cursor:pointer;font-weight:700;opacity:0.5" onclick="removeSupplier('${esc(name)}');this.parentElement.remove()">&times;</span>`;
   wrap.appendChild(tag);
 }
@@ -192,31 +174,26 @@ function getRecord(){
 }
 
 /* ================================================================
-   VIEW: FIYAT GIRIŞİ
+   FIYAT GIRIŞİ
    ================================================================ */
 function goToPrices(id){
   currentRecordId=id;
   const r=getRecord();
   if(!r)return;
   saveFormItems();
-
-  // Fiyat nesnesini başlat (boş olanları doldur)
   if(!r.prices)r.prices={};
-  r.items.forEach((item,i)=>{
+  r.items.forEach(item=>{
     if(!r.prices[item.name])r.prices[item.name]={};
     r.suppliers.forEach(s=>{
       if(r.prices[item.name][s]===undefined)r.prices[item.name][s]='';
     });
   });
   saveData();
-
   renderPrices(r);
 }
 
 function renderPrices(r){
   const app=$('app');
-  const baseClass='btn btn-sm ';
-
   app.innerHTML=`
     <div class="header">
       <button class="btn btn-outline btn-sm" onclick="renderRequestForm(getRecord())">&larr; Düzenle</button>
@@ -244,9 +221,9 @@ function renderPrices(r){
         </div>
         ${r.items.length===0?'<div style="text-align:center;color:#9ca3af;padding:1rem">Henüz ürün eklenmemiş</div>':''}
       </div>
-    </div>
-  `;
+    </div>`;
   showPage('page-prices');
+  window._rid=r.id;
   renderPriceRows(r);
 }
 
@@ -257,23 +234,21 @@ function renderPriceRows(r){
     const prices=r.prices[item.name]||{};
     const vals=r.suppliers.map(s=>prices[s]);
     const nums=vals.filter(v=>v!==''&&v!==undefined&&v!==null).map(Number);
-    const best=Math.min(...nums);
-    const bestIdx=nums.indexOf(best);
-    const bestSupplier=nums.length>0?r.suppliers[vals.findIndex(v=>Number(v)===best)]:null;
-
+    const best=nums.length>0?Math.min(...nums):null;
+    const bestSupplier=best!==null?r.suppliers[vals.findIndex(v=>Number(v)===best)]:null;
     return `<tr id="row-${esc(item.name)}">
       <td><strong>${esc(item.name)}</strong></td>
       <td style="color:#6b7280">${item.unit}</td>
-      ${r.suppliers.map((s,si)=>{
+      ${r.suppliers.map(s=>{
         const val=prices[s];
-        const isBest=val!==''&&val!==undefined&&Number(val)===best&&nums.length>0;
+        const isBest=val!==''&&val!==undefined&&best!==null&&Number(val)===best;
         return `<td${isBest?' class="best"':''}><input type="number" step="0.01" min="0"
           data-item="${esc(item.name)}" data-supplier="${esc(s)}"
           value="${val!==undefined&&val!==''?val:''}"
           oninput="onPriceChange(this,'${esc(item.name)}','${esc(s)}')"
           placeholder="—" /></td>`;
       }).join('')}
-      <td>${bestSupplier?fmtTL(best)+' <span class="best-badge">'+esc(bestSupplier)+'</span>':''}</td>
+      <td class="best-cell" data-item="${esc(item.name)}">${bestSupplier?fmtTL(best)+' <span class="best-badge">'+esc(bestSupplier)+'</span>':''}</td>
     </tr>`;
   }).join('');
 }
@@ -283,23 +258,33 @@ function onPriceChange(input,iname,sname){
   if(!r)return;
   if(!r.prices[iname])r.prices[iname]={};
   r.prices[iname][sname]=input.value;
-  // Sadece best satırını güncelle (input debounce)
-  clearTimeout(input._timer);
-  input._timer=setTimeout(()=>{saveData();renderPriceRows(r)},200);
+  saveData();
+
+  const row=input.closest('tr');
+  if(row){
+    const inputs=row.querySelectorAll('input[type="number"]');
+    const nums=[];
+    inputs.forEach(inp=>{const v=parseFloat(inp.value);if(!isNaN(v))nums.push(v)});
+    const bestCell=row.querySelector('.best-cell');
+    if(bestCell&&nums.length>0){
+      const best=Math.min(...nums);
+      const suppliers=r.suppliers;
+      const vals=suppliers.map(s=>r.prices[iname]?.[s]);
+      const idx=vals.findIndex(v=>Number(v)===best);
+      bestCell.innerHTML=fmtTL(best)+' <span class="best-badge">'+esc(suppliers[idx])+'</span>';
+    }else if(bestCell)bestCell.innerHTML='';
+  }
 }
 
 /* ================================================================
-   VIEW: RAPOR
+   RAPOR
    ================================================================ */
 function showReport(id){
   currentRecordId=id;
   const r=getRecord();
   if(!r)return;
-  saveFormItems();
 
   const app=$('app');
-
-  // En uygun fiyatları hesapla
   const bestData=r.items.map(item=>{
     const prices=r.prices[item.name]||{};
     const entries=r.suppliers.map(s=>({supplier:s,price:prices[s]!==''&&prices[s]!==undefined?Number(prices[s]):null}));
@@ -319,7 +304,7 @@ function showReport(id){
 
   app.innerHTML=`
     <div class="header no-print">
-      <button class="btn btn-outline btn-sm" onclick="renderPrices(r)">&larr; Fiyatlar</button>
+      <button class="btn btn-outline btn-sm" onclick="goToPrices(window._rid)">&larr; Fiyatlar</button>
       <h1>Karşılaştırma Raporu</h1>
       <div class="header-actions">
         <button class="btn btn-primary btn-sm" onclick="window.print()">PDF / Yazdır</button>
@@ -337,7 +322,6 @@ function showReport(id){
           ${r.suppliers.map(s=>`<span class="supplier-tag">${esc(s)}</span>`).join('')}
         </div>
       </div>
-
       <div class="card" style="padding:0.75rem">
         <div class="table-wrap">
           <table>
@@ -365,27 +349,20 @@ function showReport(id){
           </table>
         </div>
       </div>
-    </div>
-  `;
+    </div>`;
   showPage('page-report');
-
-  // R.name'i report için sabitle
-  window.r=r;
+  window._rid=r.id;
 }
 
 /* ================================================================
-   GEÇMİŞTEN KAYIT AÇMA
+   GEÇMİŞTEN AÇMA
    ================================================================ */
 function openRequest(id){
   currentRecordId=id;
   const r=getRecord();
   if(!r)return;
-  if(r.prices && Object.keys(r.prices).length>0){
-    // Fiyat varsa doğrudan rapora git
-    showReport(id);
-  }else{
-    renderRequestForm(r);
-  }
+  if(r.prices&&Object.keys(r.prices).length>0)showReport(id);
+  else renderRequestForm(r);
 }
 
 /* ================================================================
