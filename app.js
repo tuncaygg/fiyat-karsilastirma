@@ -4,10 +4,12 @@
 
 const STORAGE_KEY = 'satin-alm-records';
 const SUPPLIER_STORAGE_KEY = 'satin-alm-suppliers';
+const ITEM_STORAGE_KEY = 'satin-alm-items';
 const UNITS = ['kg','adet','kutu','kova','paket','torba','litre','çift','takım','metre'];
 
 let records = [];
 let knownSuppliers = [];
+let knownItems = [];
 let currentRecordId = null;
 
 /* ---- YÜKLE / KAYDET ---- */
@@ -22,6 +24,12 @@ function loadSuppliers(){
 }
 function saveSuppliers(){
   localStorage.setItem(SUPPLIER_STORAGE_KEY,JSON.stringify(knownSuppliers));
+}
+function loadItems(){
+  try{const r=localStorage.getItem(ITEM_STORAGE_KEY);if(r)knownItems=JSON.parse(r)}catch(_){}
+}
+function saveItems(){
+  localStorage.setItem(ITEM_STORAGE_KEY,JSON.stringify(knownItems));
 }
 
 /* ---- YARDIMCI ---- */
@@ -96,6 +104,16 @@ function renderRequestForm(r){
         <div class="card-title">Ürünler</div>
         <div id="itemsWrap"></div>
         <button class="btn btn-outline btn-sm" onclick="addItemRow()">+ Ürün Ekle</button>
+        ${knownItems.filter(n=>!r.items.some(it=>it.name===n)).length>0?`
+        <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid #e5e7eb">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.3rem">
+            <span style="font-size:0.8rem;color:#6b7280">Kayıtlı ürünler:</span>
+            <button class="btn btn-outline btn-sm" style="font-size:0.7rem;padding:0.1rem 0.4rem" onclick="toggleMemEdit()">Düzenle</button>
+          </div>
+          <div id="knownItemsWrap" style="display:flex;flex-wrap:wrap;gap:0.25rem">
+            ${knownItems.filter(n=>!r.items.some(it=>it.name===n)).map(n=>`<span class="mem-tag" data-name="${esc(n)}" onclick="addKnownItem('${esc(n)}')"><span class="mem-del" style="display:none" onclick="event.stopPropagation();removeKnownItem('${esc(n)}')">&times;</span> ${esc(n)}</span>`).join('')}
+          </div>
+        </div>`:''}
       </div>
       <div class="card">
         <div class="card-title">Tedarikçiler</div>
@@ -105,7 +123,16 @@ function renderRequestForm(r){
           <datalist id="supplierDatalist">${knownSuppliers.map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
           <button class="btn btn-primary btn-sm w-auto" onclick="addSupplier()">Ekle</button>
         </div>
-        ${knownSuppliers.filter(s=>!r.suppliers.includes(s)).length>0?`<div style="margin-top:0.5rem;font-size:0.8rem;color:#6b7280">Kayıtlı tedarikçiler:</div><div style="display:flex;flex-wrap:wrap;gap:0.25rem;margin-top:0.25rem">${knownSuppliers.filter(s=>!r.suppliers.includes(s)).map(s=>`<span class="supplier-tag" style="cursor:pointer" onclick="addSupplierByName('${esc(s)}')">+ ${esc(s)}</span>`).join('')}</div>`:''}
+        ${knownSuppliers.filter(s=>!r.suppliers.includes(s)).length>0?`
+        <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid #e5e7eb">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.3rem">
+            <span style="font-size:0.8rem;color:#6b7280">Kayıtlı tedarikçiler:</span>
+            <button class="btn btn-outline btn-sm" style="font-size:0.7rem;padding:0.1rem 0.4rem" onclick="toggleMemEdit()">Düzenle</button>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:0.25rem">
+            ${knownSuppliers.filter(s=>!r.suppliers.includes(s)).map(s=>`<span class="mem-tag sup" data-name="${esc(s)}" onclick="addSupplierByName('${esc(s)}')"><span class="mem-del" style="display:none" onclick="event.stopPropagation();removeKnownSupplier('${esc(s)}')">&times;</span> ${esc(s)}</span>`).join('')}
+          </div>
+        </div>`:''}
       </div>
       <div style="text-align:right;margin-top:1rem">
         <button class="btn btn-success" onclick="goToPrices('${r.id}')">Fiyatları Girmeye Başla &rarr;</button>
@@ -138,12 +165,15 @@ function saveFormItems(){
   const r=getRecord();
   if(!r)return;
   const rows=document.querySelectorAll('.item-row');
-  if(!rows.length)return; // form visible değilse temizleme
+  if(!rows.length)return;
   r.items=[];
   rows.forEach(row=>{
     const name=row.querySelector('.item-name').value.trim();
     const unit=row.querySelector('.item-unit').value;
-    if(name)r.items.push({name,unit});
+    if(name){
+      r.items.push({name,unit});
+      if(!knownItems.includes(name)){knownItems.push(name);saveItems()}
+    }
   });
   saveData();
 }
@@ -214,9 +244,36 @@ function deleteRecord(id){
   saveData();
   renderHome();
 }
+function toggleMemEdit(){
+  document.querySelectorAll('.mem-del').forEach(el=>{
+    el.style.display=el.style.display==='inline'?'none':'inline';
+  });
+}
+function addKnownItem(name){
+  const r=getRecord();
+  if(!r)return;
+  if(r.items.some(it=>it.name===name))return;
+  r.items.push({name,unit:'kg'});
+  saveData();
+  renderRequestForm(r);
+}
+function removeKnownItem(name){
+  if(!confirm('"'+name+'" hafızadan silinsin mi?'))return;
+  knownItems=knownItems.filter(n=>n!==name);
+  saveItems();
+  const r=getRecord();
+  if(r)renderRequestForm(r);
+}
+function removeKnownSupplier(name){
+  if(!confirm('"'+name+'" hafızadan silinsin mi?'))return;
+  knownSuppliers=knownSuppliers.filter(s=>s!==name);
+  saveSuppliers();
+  const r=getRecord();
+  if(r)renderRequestForm(r);
+}
 
 /* ================================================================
-   FIYAT GIRIŞİ
+   FIYAT GIRIŞI
    ================================================================ */
 function goToPrices(id){
   currentRecordId=id;
@@ -302,10 +359,10 @@ function renderPriceRows(r){
             value="${val!==undefined&&val!==''?val:''}"
             oninput="onPriceChange(this,'${esc(item.name)}','${esc(s)}')"
             placeholder="—" style="${disc>0?'margin-bottom:2px':''}" />
-          ${disc>0&&effs[i]!==null?`<div style="font-size:0.7rem;color:#0d9488;font-weight:600">${fmtTL(effs[i])}*</div>`:''}
+          ${disc>0&&effs[i]!==null?`<div style="font-size:0.7rem;color:#0d9488;font-weight:600">${fmtTL(effs[i])}</div>`:''}
         </td>`;
       }).join('')}
-      <td class="best-cell" data-item="${esc(item.name)}">${best!==null?fmtTL(best)+' <span class="best-badge">'+esc(r.suppliers[bestIdx])+(r.discounts?.[r.suppliers[bestIdx]]?'*':'')+'</span>':''}</td>
+      <td class="best-cell" data-item="${esc(item.name)}">${best!==null?fmtTL(best)+' <span class="best-badge">'+esc(r.suppliers[bestIdx])+'</span>':''}</td>
     </tr>`;
   }).join('');
 }
@@ -325,8 +382,7 @@ function onPriceChange(input,iname,sname){
     if(bestCell&&nums.length>0){
       const best=Math.min(...nums);
       const idx=effs.findIndex(v=>v===best);
-      const star=r.discounts?.[r.suppliers[idx]]?'*':'';
-      bestCell.innerHTML=fmtTL(best)+' <span class="best-badge">'+esc(r.suppliers[idx])+star+'</span>';
+      bestCell.innerHTML=fmtTL(best)+' <span class="best-badge">'+esc(r.suppliers[idx])+'</span>';
     }else if(bestCell)bestCell.innerHTML='';
   }
 }
@@ -389,7 +445,7 @@ function showReport(id){
               ${bestData.map(({item,bestPrice,bestSuppliers,entries})=>`<tr${bestSuppliers.length>0?' class="best"':''}>
                 <td><strong>${esc(item.name)}</strong></td>
                 <td style="color:#6b7280">${item.unit}</td>
-                ${entries.map(e=>`<td style="text-align:right${e.price===null?';color:#d1d5db':''}">${e.price!==null?fmtTL(e.price)+(e.disc>0?'*':''):'—'}</td>`).join('')}
+                ${entries.map(e=>`<td style="text-align:right${e.price===null?';color:#d1d5db':''}">${e.price!==null?fmtTL(e.price):'—'}</td>`).join('')}
                 <td style="text-align:right;font-weight:700;color:#0d9488">${bestPrice!==null?fmtTL(bestPrice):'—'}</td>
               </tr>`).join('')}
             </tbody>
@@ -424,4 +480,5 @@ function openRequest(id){
    ================================================================ */
 loadData();
 loadSuppliers();
+loadItems();
 renderHome();

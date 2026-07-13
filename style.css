@@ -96,6 +96,18 @@ td:last-child{font-weight:600}
   background:#eff6ff;color:#1d4ed8;font-size:0.8rem;font-weight:500;
   margin:0.15rem;
 }
+.mem-tag{
+  display:inline-flex;align-items:center;gap:0.2rem;
+  padding:0.25rem 0.5rem;border-radius:6px;
+  background:#f3f4f6;color:#374151;font-size:0.8rem;font-weight:500;
+  cursor:pointer;user-select:none;
+}
+.mem-tag:hover{background:#e5e7eb}
+.mem-del{
+  font-weight:700;color:#dc2626;font-size:1rem;line-height:1;
+  cursor:pointer;padding:0 0.15rem;
+}
+.mem-del:hover{color:#b91c1c}
 .form-section{margin-bottom:1.5rem}
 .section-label{font-size:0.85rem;font-weight:600;color:#4b5563;margin-bottom:0.5rem}
 .badge{
