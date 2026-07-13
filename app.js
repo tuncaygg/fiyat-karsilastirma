@@ -148,6 +148,15 @@ function saveFormItems(){
   saveData();
 }
 
+/* ---- İSKONTO ---- */
+function setDiscount(name,val){
+  const r=getRecord();
+  if(!r)return;
+  r.discounts[name]=parseFloat(val)||0;
+  saveData();
+  renderPriceRows(r);
+}
+
 /* ---- TEDARİKÇİ ---- */
 function addToKnown(name){
   if(!knownSuppliers.includes(name)){knownSuppliers.push(name);saveSuppliers()}
@@ -215,10 +224,12 @@ function goToPrices(id){
   if(!r)return;
   saveFormItems();
   if(!r.prices)r.prices={};
+  if(!r.discounts)r.discounts={};
   r.items.forEach(item=>{
     if(!r.prices[item.name])r.prices[item.name]={};
     r.suppliers.forEach(s=>{
       if(r.prices[item.name][s]===undefined)r.prices[item.name][s]='';
+      if(r.discounts[s]===undefined)r.discounts[s]=0;
     });
   });
   saveData();
@@ -246,7 +257,7 @@ function renderPrices(r){
             <thead><tr>
               <th style="min-width:120px">Ürün</th>
               <th style="min-width:50px">Birim</th>
-              ${r.suppliers.map(s=>`<th>${esc(s)}</th>`).join('')}
+              ${r.suppliers.map(s=>`<th>${esc(s)}<br><input type="number" min="0" max="100" step="0.5" value="${r.discounts?.[s]||0}" onchange="setDiscount('${esc(s)}',this.value)" style="width:65px;font-size:0.75rem;padding:0.15rem 0.25rem;text-align:center;border-radius:4px;border:1px solid #d1d5db;margin-top:2px" placeholder="%" /></th>`).join('')}
               <th style="min-width:80px">En Uygun</th>
             </tr></thead>
             <tbody id="priceBody"></tbody>
@@ -260,28 +271,41 @@ function renderPrices(r){
   renderPriceRows(r);
 }
 
+function effPrice(r,iname,sname){
+  const raw=r.prices?.[iname]?.[sname];
+  if(raw===''||raw===undefined||raw===null)return null;
+  const p=Number(raw);
+  if(isNaN(p))return null;
+  const d=r.discounts?.[sname]||0;
+  return d>0?p*(1-d/100):p;
+}
+
 function renderPriceRows(r){
   const tbody=$('priceBody');
   if(!tbody)return;
   tbody.innerHTML=r.items.map(item=>{
-    const prices=r.prices[item.name]||{};
-    const vals=r.suppliers.map(s=>prices[s]);
-    const nums=vals.filter(v=>v!==''&&v!==undefined&&v!==null).map(Number);
+    const raw=r.prices[item.name]||{};
+    const effs=r.suppliers.map(s=>effPrice(r,item.name,s));
+    const nums=effs.filter(v=>v!==null);
     const best=nums.length>0?Math.min(...nums):null;
-    const bestSupplier=best!==null?r.suppliers[vals.findIndex(v=>Number(v)===best)]:null;
+    const bestIdx=best!==null?effs.findIndex(v=>v===best):-1;
     return `<tr id="row-${esc(item.name)}">
       <td><strong>${esc(item.name)}</strong></td>
       <td style="color:#6b7280">${item.unit}</td>
-      ${r.suppliers.map(s=>{
-        const val=prices[s];
-        const isBest=val!==''&&val!==undefined&&best!==null&&Number(val)===best;
-        return `<td${isBest?' class="best"':''}><input type="number" step="0.01" min="0"
-          data-item="${esc(item.name)}" data-supplier="${esc(s)}"
-          value="${val!==undefined&&val!==''?val:''}"
-          oninput="onPriceChange(this,'${esc(item.name)}','${esc(s)}')"
-          placeholder="—" /></td>`;
+      ${r.suppliers.map((s,i)=>{
+        const val=raw[s];
+        const disc=r.discounts?.[s]||0;
+        const isBest=i===bestIdx;
+        return `<td${isBest?' class="best"':''} style="vertical-align:middle">
+          <input type="number" step="0.01" min="0"
+            data-item="${esc(item.name)}" data-supplier="${esc(s)}"
+            value="${val!==undefined&&val!==''?val:''}"
+            oninput="onPriceChange(this,'${esc(item.name)}','${esc(s)}')"
+            placeholder="—" style="${disc>0?'margin-bottom:2px':''}" />
+          ${disc>0&&effs[i]!==null?`<div style="font-size:0.7rem;color:#0d9488;font-weight:600">${fmtTL(effs[i])}*</div>`:''}
+        </td>`;
       }).join('')}
-      <td class="best-cell" data-item="${esc(item.name)}">${bestSupplier?fmtTL(best)+' <span class="best-badge">'+esc(bestSupplier)+'</span>':''}</td>
+      <td class="best-cell" data-item="${esc(item.name)}">${best!==null?fmtTL(best)+' <span class="best-badge">'+esc(r.suppliers[bestIdx])+(r.discounts?.[r.suppliers[bestIdx]]?'*':'')+'</span>':''}</td>
     </tr>`;
   }).join('');
 }
@@ -295,16 +319,14 @@ function onPriceChange(input,iname,sname){
 
   const row=input.closest('tr');
   if(row){
-    const inputs=row.querySelectorAll('input[type="number"]');
-    const nums=[];
-    inputs.forEach(inp=>{const v=parseFloat(inp.value);if(!isNaN(v))nums.push(v)});
+    const effs=r.suppliers.map(s=>effPrice(r,iname,s));
+    const nums=effs.filter(v=>v!==null);
     const bestCell=row.querySelector('.best-cell');
     if(bestCell&&nums.length>0){
       const best=Math.min(...nums);
-      const suppliers=r.suppliers;
-      const vals=suppliers.map(s=>r.prices[iname]?.[s]);
-      const idx=vals.findIndex(v=>Number(v)===best);
-      bestCell.innerHTML=fmtTL(best)+' <span class="best-badge">'+esc(suppliers[idx])+'</span>';
+      const idx=effs.findIndex(v=>v===best);
+      const star=r.discounts?.[r.suppliers[idx]]?'*':'';
+      bestCell.innerHTML=fmtTL(best)+' <span class="best-badge">'+esc(r.suppliers[idx])+star+'</span>';
     }else if(bestCell)bestCell.innerHTML='';
   }
 }
@@ -319,8 +341,7 @@ function showReport(id){
 
   const app=$('app');
   const bestData=r.items.map(item=>{
-    const prices=r.prices[item.name]||{};
-    const entries=r.suppliers.map(s=>({supplier:s,price:prices[s]!==''&&prices[s]!==undefined?Number(prices[s]):null}));
+    const entries=r.suppliers.map(s=>({supplier:s,price:effPrice(r,item.name,s),disc:r.discounts?.[s]||0}));
     const valid=entries.filter(e=>e.price!==null);
     const bestPrice=valid.length>0?Math.min(...valid.map(e=>e.price)):null;
     const bestSuppliers=bestPrice!==null?valid.filter(e=>e.price===bestPrice).map(e=>e.supplier):[];
@@ -368,7 +389,7 @@ function showReport(id){
               ${bestData.map(({item,bestPrice,bestSuppliers,entries})=>`<tr${bestSuppliers.length>0?' class="best"':''}>
                 <td><strong>${esc(item.name)}</strong></td>
                 <td style="color:#6b7280">${item.unit}</td>
-                ${entries.map(e=>`<td style="text-align:right${e.price===null?';color:#d1d5db':''}">${e.price!==null?fmtTL(e.price):'—'}</td>`).join('')}
+                ${entries.map(e=>`<td style="text-align:right${e.price===null?';color:#d1d5db':''}">${e.price!==null?fmtTL(e.price)+(e.disc>0?'*':''):'—'}</td>`).join('')}
                 <td style="text-align:right;font-weight:700;color:#0d9488">${bestPrice!==null?fmtTL(bestPrice):'—'}</td>
               </tr>`).join('')}
             </tbody>
