@@ -152,15 +152,28 @@ function addItemRow(item){
   div.style.marginBottom='0.4rem';
   div.innerHTML=`
     <input type="text" class="item-name" placeholder="Ürün adı" value="${item?esc(item.name):''}" />
+    <span class="qty-ctrl" style="display:inline-flex;align-items:center;gap:0.15rem;flex:0 0 auto">
+      <button type="button" class="btn btn-outline btn-sm qty-btn" style="padding:0.1rem 0.35rem;font-size:0.85rem;line-height:1">−</button>
+      <span class="qty-val" style="min-width:1.3rem;text-align:center;font-weight:600;font-size:0.9rem">${item&&item.qty?item.qty:1}</span>
+      <button type="button" class="btn btn-outline btn-sm qty-btn" style="padding:0.1rem 0.35rem;font-size:0.85rem;line-height:1">+</button>
+    </span>
     <select class="item-unit" style="flex:0 0 auto;width:80px">
       ${UNITS.map(u=>`<option value="${u}"${item&&item.unit===u?' selected':''}>${u}</option>`).join('')}
     </select>
     <button class="btn btn-danger btn-sm w-auto" onclick="this.closest('.item-row').remove();saveFormItems()" style="padding:0.35rem 0.5rem">&times;</button>`;
   wrap.appendChild(div);
   div.querySelectorAll('input,select').forEach(el=>el.onchange=saveFormItems);
+  div.querySelectorAll('.qty-btn').forEach(el=>el.onclick=function(){qtyChange(this,this.textContent==='−'?-1:1)});
   if(!item)saveFormItems();
 }
 
+function qtyChange(btn,delta){
+  const span=btn.closest('.item-row').querySelector('.qty-val');
+  let v=parseInt(span.textContent)||1;
+  v=Math.max(1,v+delta);
+  span.textContent=v;
+  saveFormItems();
+}
 function saveFormItems(){
   const r=getRecord();
   if(!r)return;
@@ -170,8 +183,9 @@ function saveFormItems(){
   rows.forEach(row=>{
     const name=row.querySelector('.item-name').value.trim();
     const unit=row.querySelector('.item-unit').value;
+    const qty=parseInt(row.querySelector('.qty-val')?.textContent)||1;
     if(name){
-      r.items.push({name,unit});
+      r.items.push({name,unit,qty});
       if(!knownItems.includes(name)){knownItems.push(name);saveItems()}
     }
   });
@@ -313,6 +327,7 @@ function renderPrices(r){
           <table id="priceTable">
             <thead><tr>
               <th style="min-width:120px">Ürün</th>
+              <th style="min-width:35px">Adet</th>
               <th style="min-width:50px">Birim</th>
               ${r.suppliers.map(s=>`<th>${esc(s)}<br><input type="number" min="0" max="100" step="0.5" value="${r.discounts?.[s]||0}" onchange="setDiscount('${esc(s)}',this.value)" style="width:65px;font-size:0.75rem;padding:0.15rem 0.25rem;text-align:center;border-radius:4px;border:1px solid #d1d5db;margin-top:2px" placeholder="%" /></th>`).join('')}
               <th style="min-width:80px">En Uygun</th>
@@ -346,8 +361,10 @@ function renderPriceRows(r){
     const nums=effs.filter(v=>v!==null);
     const best=nums.length>0?Math.min(...nums):null;
     const bestIdx=best!==null?effs.findIndex(v=>v===best):-1;
+    const qty=item.qty||1;
     return `<tr id="row-${esc(item.name)}">
       <td><strong>${esc(item.name)}</strong></td>
+      <td style="text-align:center;font-weight:600">${qty}</td>
       <td style="color:#6b7280">${item.unit}</td>
       ${r.suppliers.map((s,i)=>{
         const val=raw[s];
@@ -397,17 +414,21 @@ function showReport(id){
 
   const app=$('app');
   const bestData=r.items.map(item=>{
-    const entries=r.suppliers.map(s=>({supplier:s,price:effPrice(r,item.name,s),disc:r.discounts?.[s]||0}));
-    const valid=entries.filter(e=>e.price!==null);
-    const bestPrice=valid.length>0?Math.min(...valid.map(e=>e.price)):null;
-    const bestSuppliers=bestPrice!==null?valid.filter(e=>e.price===bestPrice).map(e=>e.supplier):[];
-    return {item,bestPrice,bestSuppliers,entries};
+    const qty=item.qty||1;
+    const entries=r.suppliers.map(s=>{
+      const unitPrice=effPrice(r,item.name,s);
+      return {supplier:s,unitPrice,total:unitPrice!==null?unitPrice*qty:null,disc:r.discounts?.[s]||0};
+    });
+    const valid=entries.filter(e=>e.total!==null);
+    const bestTotal=valid.length>0?Math.min(...valid.map(e=>e.total)):null;
+    const bestSuppliers=bestTotal!==null?valid.filter(e=>e.total===bestTotal).map(e=>e.supplier):[];
+    return {item,bestTotal,bestSuppliers,entries,qty};
   });
 
   const genelToplam=r.suppliers.map(s=>{
     const toplam=bestData.reduce((sum,{entries})=>{
       const e=entries.find(x=>x.supplier===s);
-      return sum+(e&&e.price!==null?e.price:0);
+      return sum+(e&&e.total!==null?e.total:0);
     },0);
     return {supplier:s,total:toplam};
   });
@@ -437,21 +458,26 @@ function showReport(id){
           <table>
             <thead><tr>
               <th style="text-align:left">Ürün</th>
+              <th style="text-align:center">Adet</th>
               <th>Birim</th>
               ${r.suppliers.map(s=>`<th style="text-align:right">${esc(s)}<br><span style="font-weight:400;font-size:0.75rem;color:#6b7280">TL</span></th>`).join('')}
               <th style="text-align:right">En Uygun</th>
             </tr></thead>
             <tbody>
-              ${bestData.map(({item,bestPrice,bestSuppliers,entries})=>`<tr${bestSuppliers.length>0?' class="best"':''}>
+              ${bestData.map(({item,bestTotal,bestSuppliers,entries,qty})=>`<tr${bestSuppliers.length>0?' class="best"':''}>
                 <td><strong>${esc(item.name)}</strong></td>
+                <td style="text-align:center">${qty}</td>
                 <td style="color:#6b7280">${item.unit}</td>
-                ${entries.map(e=>`<td style="text-align:right${e.price===null?';color:#d1d5db':''}">${e.price!==null?fmtTL(e.price):'—'}</td>`).join('')}
-                <td style="text-align:right;font-weight:700;color:#0d9488">${bestPrice!==null?fmtTL(bestPrice):'—'}</td>
+                ${entries.map(e=>{
+                  const isBest=e.total!==null&&e.total===bestTotal;
+                  return `<td style="text-align:right${e.total===null?';color:#d1d5db':''}${isBest?';font-weight:700;font-size:0.95rem':''}">${e.total!==null?fmtTL(e.total):'—'}</td>`;
+                }).join('')}
+                <td style="text-align:right;font-weight:700;color:#0d9488">${bestTotal!==null?fmtTL(bestTotal):'—'}</td>
               </tr>`).join('')}
             </tbody>
             <tfoot>
               <tr style="font-weight:700;border-top:2px solid #374151">
-                <td colspan="2">Toplam</td>
+                <td colspan="3">Toplam</td>
                 ${genelToplam.map(t=>`<td style="text-align:right">${t.total>0?fmtTL(t.total):'—'}</td>`).join('')}
                 <td style="text-align:right;color:#0d9488">${fmtTL(Math.min(...genelToplam.filter(t=>t.total>0).map(t=>t.total),Infinity))}</td>
               </tr>
