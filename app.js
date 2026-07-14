@@ -405,7 +405,7 @@ function onPriceChange(input,iname,sname){
 }
 
 /* ================================================================
-   RAPOR
+   RAPOR + SİPARİŞ
    ================================================================ */
 function showReport(id){
   currentRecordId=id;
@@ -419,16 +419,16 @@ function showReport(id){
       const unitPrice=effPrice(r,item.name,s);
       return {supplier:s,unitPrice,total:unitPrice!==null?unitPrice*qty:null,disc:r.discounts?.[s]||0};
     });
-    const valid=entries.filter(e=>e.total!==null);
-    const bestTotal=valid.length>0?Math.min(...valid.map(e=>e.total)):null;
-    const bestSuppliers=bestTotal!==null?valid.filter(e=>e.total===bestTotal).map(e=>e.supplier):[];
-    return {item,bestTotal,bestSuppliers,entries,qty};
+    const valid=entries.filter(e=>e.unitPrice!==null);
+    const bestUnit=valid.length>0?Math.min(...valid.map(e=>e.unitPrice)):null;
+    const bestSuppliers=bestUnit!==null?valid.filter(e=>e.unitPrice===bestUnit).map(e=>e.supplier):[];
+    return {item,bestUnit,bestSuppliers,entries,qty};
   });
 
   const genelToplam=r.suppliers.map(s=>{
     const toplam=bestData.reduce((sum,{entries})=>{
       const e=entries.find(x=>x.supplier===s);
-      return sum+(e&&e.total!==null?e.total:0);
+      return sum+(e&&e.unitPrice!==null?e.unitPrice:0);
     },0);
     return {supplier:s,total:toplam};
   });
@@ -438,6 +438,7 @@ function showReport(id){
       <button class="btn btn-outline btn-sm" onclick="goToPrices(window._rid)">&larr; Fiyatlar</button>
       <h1>Karşılaştırma Raporu</h1>
       <div class="header-actions">
+        <button class="btn btn-success btn-sm" onclick="toggleOrder()">Sipariş Ver &rarr;</button>
         <button class="btn btn-primary btn-sm" onclick="window.print()">PDF / Yazdır</button>
         <button class="btn btn-outline btn-sm" onclick="renderHome()">Kapat</button>
       </div>
@@ -464,20 +465,20 @@ function showReport(id){
               <th style="text-align:right">En Uygun</th>
             </tr></thead>
             <tbody>
-              ${bestData.map(({item,bestTotal,bestSuppliers,entries,qty})=>`<tr${bestSuppliers.length>0?' class="best"':''}>
+              ${bestData.map(({item,bestUnit,bestSuppliers,entries,qty})=>`<tr${bestSuppliers.length>0?' class="best"':''}>
                 <td><strong>${esc(item.name)}</strong></td>
                 <td style="text-align:center">${qty}</td>
                 <td style="color:#6b7280">${item.unit}</td>
                 ${entries.map(e=>{
-                  const isBest=e.total!==null&&e.total===bestTotal;
-                  return `<td style="text-align:right${e.total===null?';color:#d1d5db':''}${isBest?';font-weight:700;font-size:0.95rem':''}">${e.total!==null?fmtTL(e.total):'—'}</td>`;
+                  const isBest=e.unitPrice!==null&&e.unitPrice===bestUnit;
+                  return `<td style="text-align:right${e.unitPrice===null?';color:#d1d5db':''}${isBest?';font-weight:700;font-size:0.95rem':''}">${e.unitPrice!==null?fmtTL(e.unitPrice):'—'}</td>`;
                 }).join('')}
-                <td style="text-align:right;font-weight:700;color:#0d9488">${bestTotal!==null?fmtTL(bestTotal):'—'}</td>
+                <td style="text-align:right;font-weight:700;color:#0d9488">${bestUnit!==null?fmtTL(bestUnit):'—'}</td>
               </tr>`).join('')}
             </tbody>
             <tfoot>
               <tr style="font-weight:700;border-top:2px solid #374151">
-                <td colspan="3">Toplam</td>
+                <td colspan="3">Birim Toplam</td>
                 ${genelToplam.map(t=>`<td style="text-align:right">${t.total>0?fmtTL(t.total):'—'}</td>`).join('')}
                 <td style="text-align:right;color:#0d9488">${fmtTL(Math.min(...genelToplam.filter(t=>t.total>0).map(t=>t.total),Infinity))}</td>
               </tr>
@@ -485,9 +486,85 @@ function showReport(id){
           </table>
         </div>
       </div>
+
+      <div id="orderSection" class="card" style="padding:0.75rem;display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem">
+          <strong style="font-size:0.95rem">Sipariş Listesi</strong>
+          <div style="display:flex;gap:0.4rem">
+            <button class="btn btn-primary btn-sm" onclick="copyOrder()">Tümünü Kopyala</button>
+            <button class="btn btn-outline btn-sm" onclick="toggleOrder()">Gizle</button>
+          </div>
+        </div>
+        <div id="orderList"></div>
+      </div>
     </div>`;
   showPage('page-report');
   window._rid=r.id;
+}
+
+function toggleOrder(){
+  const sec=$('orderSection');
+  if(!sec)return;
+  if(sec.style.display==='block'){sec.style.display='none';return}
+  const r=getRecord();
+  if(!r)return;
+  const items=bestDataForOrder(r);
+  const list=$('orderList');
+  if(list){
+    list.innerHTML=items.map((o,i)=>`
+      <div class="order-row" style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0;border-bottom:1px solid #e5e7eb">
+        <input type="checkbox" class="order-cb" checked data-idx="${i}" onchange="updateOrderTotal()" />
+        <span style="flex:1">${esc(o.name)} <span style="color:#6b7280">${o.qty} ${o.unit}</span></span>
+        <span style="color:#1d4ed8;font-weight:500">${esc(o.supplier)}</span>
+        <span style="font-weight:600;min-width:5rem;text-align:right">${fmtTL(o.unitPrice)}</span>
+        <span style="font-weight:600;color:#0d9488;min-width:6rem;text-align:right">${fmtTL(o.total)}</span>
+      </div>
+    `).join('');
+    list.innerHTML+=`<div style="display:flex;justify-content:flex-end;padding:0.5rem 0;font-weight:700;font-size:0.95rem">Genel Toplam: <span id="orderTotal" style="margin-left:0.5rem;color:#0d9488">${fmtTL(items.reduce((s,o)=>s+o.total,0))}</span></div>`;
+  }
+  sec.style.display='block';
+}
+
+function bestDataForOrder(r){
+  return r.items.map(item=>{
+    const qty=item.qty||1;
+    const entries=r.suppliers.map(s=>{
+      const unitPrice=effPrice(r,item.name,s);
+      return {supplier:s,unitPrice,total:unitPrice!==null?unitPrice*qty:null};
+    });
+    const valid=entries.filter(e=>e.unitPrice!==null);
+    const bestUnit=valid.length>0?Math.min(...valid.map(e=>e.unitPrice)):null;
+    const bestSupplier=bestUnit!==null?valid.find(e=>e.unitPrice===bestUnit)?.supplier:'—';
+    return {name:item.name,qty,unit:item.unit,supplier:bestSupplier,unitPrice:bestUnit||0,total:(bestUnit||0)*qty};
+  }).filter(o=>o.unitPrice>0);
+}
+
+function updateOrderTotal(){
+  const total=[...document.querySelectorAll('.order-cb:checked')].reduce((s,cb)=>{
+    const row=cb.closest('.order-row');
+    const txt=row.querySelectorAll('span')[4].textContent.replace(/[. \u00a0]/g,'').replace(',','.').replace('TL','');
+    return s+parseFloat(txt)||0;
+  },0);
+  const el=$('orderTotal');
+  if(el)el.textContent=fmtTL(total);
+}
+
+function copyOrder(){
+  const rows=[...document.querySelectorAll('.order-cb:checked')].map(cb=>{
+    const row=cb.closest('.order-row');
+    const spans=row.querySelectorAll('span');
+    return {name:spans[0].textContent.trim(),qtyUnit:spans[1].textContent.trim(),supplier:spans[2].textContent.trim(),price:spans[4].textContent.trim()};
+  });
+  if(!rows.length){alert('Hiçbir ürün seçilmedi');return}
+  let txt='🛒 SİPARİŞ LİSTESİ\n' + '━'.repeat(30) + '\n';
+  rows.forEach((r,i)=>txt+=`${i+1}. ${r.name} (${r.qtyUnit}) → ${r.supplier} = ${r.price}\n`);
+  const total=[...document.querySelectorAll('.order-cb:checked')].reduce((s,cb)=>{
+    const row=cb.closest('.order-row');
+    const txt=row.querySelectorAll('span')[4].textContent.replace(/[. \u00a0]/g,'').replace(',','.').replace('TL','');
+    return s+parseFloat(txt)||0;
+  },0);
+  txt+='━'.repeat(30) + '\n💰 TOPLAM: ' + fmtTL(total);
+  navigator.clipboard.writeText(txt).then(()=>alert('Kopyalandı! WhatsApp\'a yapıştırabilirsin.')).catch(()=>{});
 }
 
 /* ================================================================
