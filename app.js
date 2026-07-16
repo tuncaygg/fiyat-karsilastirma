@@ -550,21 +550,39 @@ function updateOrderTotal(){
 }
 
 function copyOrder(){
-  const rows=[...document.querySelectorAll('.order-cb:checked')].map(cb=>{
+  const checked=[...document.querySelectorAll('.order-cb:checked')].map(cb=>{
     const row=cb.closest('.order-row');
     const spans=row.querySelectorAll('span');
-    return {name:spans[0].textContent.trim(),qtyUnit:spans[1].textContent.trim(),supplier:spans[2].textContent.trim(),price:spans[4].textContent.trim()};
+    return {
+      name:spans[0].childNodes[0].textContent.trim(),
+      qtyUnit:spans[1].textContent.trim(),
+      supplier:spans[2].textContent.trim(),
+      unitPrice:spans[3].textContent.trim(),
+      totalTxt:spans[4].textContent
+    };
   });
-  if(!rows.length){alert('Hiçbir ürün seçilmedi');return}
-  let txt='🛒 SİPARİŞ LİSTESİ\n' + '━'.repeat(30) + '\n';
-  rows.forEach((r,i)=>txt+=`${i+1}. ${r.name} (${r.qtyUnit}) → ${r.supplier} = ${r.price}\n`);
-  const total=[...document.querySelectorAll('.order-cb:checked')].reduce((s,cb)=>{
-    const row=cb.closest('.order-row');
-    const txt=row.querySelectorAll('span')[4].textContent.replace(/[. \u00a0]/g,'').replace(',','.').replace('TL','');
-    return s+parseFloat(txt)||0;
-  },0);
-  txt+='━'.repeat(30) + '\n💰 TOPLAM: ' + fmtTL(total);
-  navigator.clipboard.writeText(txt).then(()=>alert('Kopyalandı! WhatsApp\'a yapıştırabilirsin.')).catch(()=>{});
+  if(!checked.length){alert('Hiçbir ürün seçilmedi');return}
+
+  const groups={};
+  checked.forEach(c=>{
+    if(!groups[c.supplier])groups[c.supplier]=[];
+    groups[c.supplier].push(c);
+  });
+
+  let txt='🛒 SİPARİŞ LİSTESİ \n';
+  const suppliers=Object.keys(groups);
+  suppliers.forEach((sup,i)=>{
+    txt+=sup+'\n';
+    txt+='━'.repeat(30)+'\n';
+    groups[sup].forEach((c,j)=>txt+=`${j+1}. ${c.name} ${c.qtyUnit} × ${c.unitPrice} = ${c.totalTxt}\n`);
+    const sub=groups[sup].reduce((s,c)=>{
+      const n=parseFloat(c.totalTxt.replace(/[. \u00a0]/g,'').replace(',','.').replace('TL',''));
+      return s+(isNaN(n)?0:n);
+    },0);
+    txt+='━'.repeat(30)+'\n💰 TOPLAM: '+fmtTL(sub)+'\n\n';
+  });
+
+  navigator.clipboard.writeText(txt.trim()).then(()=>alert('Kopyalandı! WhatsApp\'a yapıştırabilirsin.')).catch(()=>{});
 }
 
 /* ================================================================
