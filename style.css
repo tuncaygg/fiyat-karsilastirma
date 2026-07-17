@@ -61,11 +61,11 @@ input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none}
 table{width:100%;border-collapse:collapse;font-size:0.85rem;min-width:600px}
 th,td{padding:0.55rem 0.6rem;text-align:left;border-bottom:1px solid #e5e7eb;white-space:nowrap}
 th{background:#f9fafb;font-weight:600;color:#374151;position:sticky;top:0}
-td input[type="number"]{
+td input[type="number"],td input[type="text"]{
   width:100%;min-width:70px;padding:0.35rem 0.5rem;
   border-radius:6px;border:1.5px solid #e5e7eb;
 }
-td input[type="number"]:focus{border-color:#2a4bff}
+td input[type="number"]:focus,td input[type="text"]:focus{border-color:#2a4bff}
 tr.best td{background:#ecfdf5!important}
 tr.best td:first-child{border-left:3px solid #0d9488}
 .best-badge{

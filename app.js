@@ -371,11 +371,11 @@ function renderPriceRows(r){
         const disc=r.discounts?.[s]||0;
         const isBest=i===bestIdx;
         return `<td${isBest?' class="best"':''} style="vertical-align:middle">
-          <input type="number" step="0.01" min="0"
+          <input type="text" inputmode="decimal" step="0.01" min="0"
             data-item="${esc(item.name)}" data-supplier="${esc(s)}"
             value="${val!==undefined&&val!==''?val:''}"
             oninput="onPriceChange(this,'${esc(item.name)}','${esc(s)}')"
-            placeholder="—" style="${disc>0?'margin-bottom:2px':''}" />
+            placeholder="—" style="${disc>0?'margin-bottom:2px':''};text-align:right" />
           ${disc>0&&effs[i]!==null?`<div style="font-size:0.7rem;color:#0d9488;font-weight:600">${fmtTL(effs[i])}</div>`:''}
         </td>`;
       }).join('')}
