@@ -384,11 +384,23 @@ function renderPriceRows(r){
   }).join('');
 }
 
+function safeEval(expr){
+  const s=expr.trim().replace(',','.');
+  if(!/^[\d+\-*/.() ]+$/.test(s))return null;
+  try{
+    const r=Function('"use strict";return ('+s+')')();
+    return typeof r==='number'&&isFinite(r)?Math.round(r*100)/100:null;
+  }catch(e){return null}
+}
+
 function onPriceChange(input,iname,sname){
   const r=getRecord();
   if(!r)return;
+  const ev=safeEval(input.value);
+  if(ev!==null&&ev!==parseFloat(input.value.replace(',','.')))input.value=ev;
+  const val=ev!==null?String(ev):input.value;
   if(!r.prices[iname])r.prices[iname]={};
-  r.prices[iname][sname]=input.value;
+  r.prices[iname][sname]=val;
   saveData();
 
   const row=input.closest('tr');
